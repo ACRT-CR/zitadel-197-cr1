@@ -47,8 +47,8 @@ func originFromForwardedHeader(r *http.Request) (string, error) {
 		return "", err
 	}
 	var fwdProto, fwdHost, fwdPort string
-	if fwdProto = mostRecentValue(fwd, "proto"); fwdProto == "" {
-		return "", fmt.Errorf("no proto in forwarded header")
+	if fwdProto = mostRecentValue(fwd, "proto"); fwdProto != "http" && fwdProto != "https" {
+		return "", fmt.Errorf("invalid proto in forwarded header")
 	}
 	if fwdHost = mostRecentValue(fwd, "host"); fwdHost == "" {
 		return "", fmt.Errorf("no host in forwarded header")
@@ -56,6 +56,9 @@ func originFromForwardedHeader(r *http.Request) (string, error) {
 	fwdPort, foundFwdFor := extractPort(mostRecentValue(fwd, "for"))
 	if !foundFwdFor {
 		return "", fmt.Errorf("no for in forwarded header")
+	}
+	if r.TLS != nil {
+		fwdProto = "https"
 	}
 	o := fmt.Sprintf("%s://%s", fwdProto, fwdHost)
 	if fwdPort != "" {
@@ -66,12 +69,15 @@ func originFromForwardedHeader(r *http.Request) (string, error) {
 
 func originFromXForwardedHeaders(r *http.Request) (string, error) {
 	scheme := r.Header.Get("X-Forwarded-Proto")
-	if scheme == "" {
-		return "", fmt.Errorf("no X-Forwarded-Proto header")
+	if scheme != "http" && scheme != "https" {
+		return "", fmt.Errorf("invalid X-Forwarded-Proto header")
 	}
 	host := r.Header.Get("X-Forwarded-Host")
 	if host == "" {
 		return "", fmt.Errorf("no X-Forwarded-Host header")
+	}
+	if r.TLS != nil {
+		scheme = "https"
 	}
 	return fmt.Sprintf("%s://%s", scheme, host), nil
 }
